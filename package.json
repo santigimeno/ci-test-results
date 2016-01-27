@@ -1,18 +1,22 @@
 {
   "name": "ci-test-results",
   "version": "1.0.0",
-  "description": "Retrieve test results from nodejs ci",
+  "description": "Retrieve test results from Node.js CI",
   "main": "index.js",
+  "bin": {"ci-test-results": "./cli.js"},
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test.js"
   },
   "author": "Santiago Gimeno <santiago.gimeno@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "JSONStream": "^1.0.7",
     "async": "^1.5.2",
-    "minimist": "^1.2.0",
+    "meow": "^3.7.0",
     "request": "^2.67.0",
     "tap-parser": "^1.2.2"
+  },
+  "devDependencies": {
+    "tap": "^5.2.0"
   }
 }
