@@ -3,44 +3,23 @@
 const async = require('async');
 const request = require('request');
 const JSONStream = require('JSONStream');
-const parse_args = require('minimist');
 
 const BASE_URL = 'https://ci.nodejs.org';
 
 const failing = [];
 
-function parse_arguments() {
-    const args_opts = {
-        string : [ 'job-type' ],
-        alias : {
-            'job-number' : 'n',
-            'job-type' : 't',
-            help : 'h'
-        }
-    };
-
-    var argv = parse_args(process.argv.slice(2), args_opts);
-    return argv;
-}
-
-function checkUrlAncestry(url, cb) {
-    cb();
-}
-
 function parseJob(url, cb) {
     const _url = [ url, 'api', 'json' ].join('/');
-    checkUrlAncestry(_url, function() {
-        const parse = JSONStream.parse();
-        parse.on('data', function(data) {
-            if (data.result === 'SUCCESS') {
-                return cb();
-            }
+    const parse = JSONStream.parse();
+    parse.on('data', function(data) {
+        if (data.result === 'SUCCESS') {
+            return cb();
+        }
 
-            parse2(data.subBuilds || data.runs || data.url, cb);
-        });
-
-        request(_url).pipe(parse);
+        parse2(data.subBuilds || data.runs || data.url, cb);
     });
+
+    request(_url).pipe(parse);
 }
 
 function parse2(builds, cb) {
@@ -109,41 +88,36 @@ function getTapResults(jobUrl, cb) {
     });
 }
 
-function printHelp() {
-    console.log('Usage: node index [options]' +
-                '\n  -n  number --job-number=number\tJob # in the selected job-type' +
-                '\n  -j value --job-type=value\tJob type defined in the CI' +
-                '\n  -h, --help\t\tShows help' +
-                '\nExample of use:\tnode index -n 1372 -j node-test-pull-request');
-    process.exit(0);
-}
+exports.getFailingJobs = function (options, config, done) {
+    // TODO: return data object and let CLI handle output
+    const URL = config.url || [ BASE_URL, 'job', options.jobType, options.jobNumber ].join('/');
 
-const argv = parse_arguments();
-if (argv.h || !argv.n || !argv.j) {
-    printHelp();
-}
-
-const URL = [ BASE_URL, 'job', argv.j, argv.n ].join('/');
-parseJob(URL, function(err) {
-    console.log('Failing jobs');
-    console.log(failing);
-    async.each(
-        failing,
-        function(url, cb) {
-            getTapResults(url, function(err, res) {
-                if (res.length > 0) {
-                    console.log('');
-                    console.log('Failing tests @ ' + url);
-                    res.forEach(function(test, i) {
+    parseJob(URL, function() {
+        console.log('Failing jobs');
+        console.log(failing);
+        async.each(
+            failing,
+            function(url, cb) {
+                getTapResults(url, function(err, res) {
+                    if (err) {
+                        return cb(err);
+                    }
+                    if (res.length > 0) {
                         console.log('');
-                        console.log((i + 1) + ') ' + test.name);
-                        console.log('----------------------------------------------');
-                        console.log(test.comments);
-                    });
+                        console.log('Failing tests @ ' + url);
+                        res.forEach(function(test, i) {
+                            console.log('');
+                            console.log((i + 1) + ') ' + test.name);
+                            console.log('----------------------------------------------');
+                            console.log(test.comments);
+                        });
 
-                    console.log('==============================================');
-                }
-            });
-        }
-    );
-});
+                        console.log('==============================================');
+                    }
+                    cb();
+                });
+            },
+            done
+        );
+    });
+};
